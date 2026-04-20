@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-// ── 输入类型（匹配后端 /mc-resources/tags 返回结构） ──
+// ── 输入类型（匹配后端 /resources/tags 返回结构） ──
 
 #[derive(Deserialize)]
 struct RawTagItem {
