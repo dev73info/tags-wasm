@@ -7,6 +7,8 @@ use wasm_bindgen::prelude::*;
 struct RawTagItem {
     id: u32,
     name: String,
+    #[serde(default)]
+    alias: String,
     sort_order: i32,
 }
 
@@ -15,6 +17,8 @@ struct RawTagGroup {
     id: u32,
     parent_group_id: Option<u32>,
     name: String,
+    #[serde(default)]
+    alias: String,
     sort_order: i32,
     child_groups: Vec<RawTagGroup>,
     items: Vec<RawTagItem>,
@@ -26,6 +30,7 @@ struct RawTagGroup {
 struct TagOption {
     id: u32,
     name: String,
+    alias: String,
 }
 
 #[derive(Serialize)]
@@ -33,7 +38,9 @@ struct PublishTagGroup {
     key: String,
     group_id: u32,
     group_name: String,
+    group_alias: String,
     group_path: Vec<String>,
+    group_path_aliases: Vec<String>,
     label: String,
     depth: u32,
     items: Vec<TagOption>,
@@ -69,6 +76,7 @@ struct AdminTreeNode {
     id: u32,
     kind: String,
     label: String,
+    alias: String,
     parent_group_id: Option<u32>,
     children: Vec<AdminTreeNode>,
 }
@@ -93,17 +101,30 @@ fn normalize(name: &str) -> String {
     name.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+fn normalize_alias(alias: &str) -> String {
+    alias.split_whitespace().collect::<Vec<_>>().join("-")
+}
+
 fn sort_groups(groups: &mut [RawTagGroup]) {
-    groups.sort_by(|a, b| a.sort_order.cmp(&b.sort_order).then_with(|| a.id.cmp(&b.id)));
+    groups.sort_by(|a, b| {
+        a.sort_order
+            .cmp(&b.sort_order)
+            .then_with(|| a.id.cmp(&b.id))
+    });
 }
 
 fn make_sorted_items(mut items: Vec<RawTagItem>) -> Vec<TagOption> {
-    items.sort_by(|a, b| a.sort_order.cmp(&b.sort_order).then_with(|| a.id.cmp(&b.id)));
+    items.sort_by(|a, b| {
+        a.sort_order
+            .cmp(&b.sort_order)
+            .then_with(|| a.id.cmp(&b.id))
+    });
     items
         .into_iter()
         .map(|i| TagOption {
             id: i.id,
             name: i.name,
+            alias: normalize_alias(&i.alias),
         })
         .collect()
 }
@@ -111,6 +132,7 @@ fn make_sorted_items(mut items: Vec<RawTagItem>) -> Vec<TagOption> {
 fn collect_publish_groups(
     mut groups: Vec<RawTagGroup>,
     parent_path: &[String],
+    parent_alias_path: &[String],
     depth: u32,
 ) -> Vec<PublishTagGroup> {
     sort_groups(&mut groups);
@@ -120,29 +142,40 @@ fn collect_publish_groups(
         let RawTagGroup {
             id,
             name,
+            alias,
             child_groups,
             items,
             ..
         } = group;
 
         let normalized = normalize(&name);
+        let normalized_alias = normalize_alias(&alias);
         let mut path = parent_path.to_vec();
         path.push(normalized.clone());
+        let mut alias_path = parent_alias_path.to_vec();
+        alias_path.push(normalized_alias.clone());
 
         let sorted = make_sorted_items(items);
         if !sorted.is_empty() {
             result.push(PublishTagGroup {
-                key: format!("{}::{}", id, path.join("::")),
+                key: format!("{}::{}", id, alias_path.join("::")),
                 group_id: id,
                 group_name: normalized,
+                group_alias: normalized_alias,
                 group_path: path.clone(),
+                group_path_aliases: alias_path.clone(),
                 label: path.join(" / "),
                 depth,
                 items: sorted,
             });
         }
 
-        result.extend(collect_publish_groups(child_groups, &path, depth + 1));
+        result.extend(collect_publish_groups(
+            child_groups,
+            &path,
+            &alias_path,
+            depth + 1,
+        ));
     }
 
     result
@@ -160,31 +193,39 @@ fn build_processed_tree(mut raw: Vec<RawTagGroup>) -> ProcessedTagTree {
         .map(|root| {
             let RawTagGroup {
                 name,
+                alias,
                 mut child_groups,
                 ..
             } = root;
 
             let root_label = normalize(&name);
+            let root_key = normalize_alias(&alias);
             sort_groups(&mut child_groups);
 
-            let first_entry_key = child_groups.first().map(|c| normalize(&c.name));
+            let first_entry_key = child_groups.first().map(|c| normalize_alias(&c.alias));
 
             let entries = child_groups
                 .into_iter()
                 .map(|child| {
                     let RawTagGroup {
                         name,
+                        alias,
                         child_groups: sub_groups,
                         ..
                     } = child;
 
                     let label = normalize(&name);
+                    let entry_key = normalize_alias(&alias);
                     let path_label = format!("{} / {}", root_label, label);
-                    let publish_groups =
-                        collect_publish_groups(sub_groups, &[label.clone()], 0);
+                    let publish_groups = collect_publish_groups(
+                        sub_groups,
+                        &[label.clone()],
+                        std::slice::from_ref(&entry_key),
+                        0,
+                    );
 
                     CatalogEntry {
-                        key: label.clone(),
+                        key: entry_key,
                         platform: label.clone(),
                         label: label.clone(),
                         group_name: label,
@@ -196,7 +237,7 @@ fn build_processed_tree(mut raw: Vec<RawTagGroup>) -> ProcessedTagTree {
                 .collect();
 
             CatalogRoot {
-                key: root_label.clone(),
+                key: root_key,
                 label: root_label,
                 first_entry_key,
                 entries,
@@ -225,6 +266,7 @@ fn build_admin_tree_nodes(
             let RawTagGroup {
                 id,
                 name,
+                alias,
                 child_groups,
                 items,
                 ..
@@ -233,6 +275,7 @@ fn build_admin_tree_nodes(
             *group_count += 1;
 
             let normalized = normalize(&name);
+            let normalized_alias = normalize_alias(&alias);
             let mut path = parent_path.to_vec();
             path.push(normalized.clone());
             group_paths.push(AdminGroupPath {
@@ -258,6 +301,7 @@ fn build_admin_tree_nodes(
                         id: item.id,
                         kind: String::from("tag"),
                         label: item.name,
+                        alias: item.alias,
                         parent_group_id: Some(id),
                         children: Vec::new(),
                     }
@@ -272,6 +316,7 @@ fn build_admin_tree_nodes(
                 id,
                 kind: String::from("group"),
                 label: normalized,
+                alias: normalized_alias,
                 parent_group_id,
                 children,
             }
