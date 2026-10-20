@@ -34,6 +34,7 @@
 
 | 场景 | 命令 | 说明 |
 | --- | --- | --- |
+| 前置 | `rustup target add wasm32-unknown-unknown` | 新机器第一次构建前装 target（见 `doc/构建与集成.md`） |
 | 改到 `src/**` | `cargo check --target wasm32-unknown-unknown` | 先编译过再打包 |
 | 出产物 | `wasm-pack build` | **必跑**：消费方吃的是 `pkg/`，只改源码不 build 等于没改 |
 | 联动验证 | 在 `../user-client` / `../admin_client` 跑各自校验 | 产物被两个宿主消费，改了要连宿主验一遍 |
@@ -43,5 +44,7 @@
 - 定位：Rust → WASM 的标签树处理库。消费方是 `../user-client` 与 `../admin_client`，
   它们读的是 **`pkg/` 里的产物**，所以「改源码 + 提交」不够，必须 `wasm-pack build` 后让宿主重新验证。
 - `pkg/` 不入库（`.gitignore` 已排除）：宿主侧缺失时由本仓重新 build 生成，不要去别的机器上拷。
+- **公开仓，`master` 有服务端保护**：要求 PR 且至少 1 个批准、`enforce_admins`、线性历史（squash / rebase）、
+  禁强推、禁删除；`dev` 只禁强推与删除。你不能批准自己的 PR。
 - 目前只有 `src/lib.rs`，没有集成测试；改动要有宿主侧走查证据，不要只写「本地编译通过」。
 - 标签树的语义与数据结构改动属于**契约变更**：先在任务文件里冻结接口，再让两个宿主跟进。
