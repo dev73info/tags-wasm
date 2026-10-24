@@ -11,7 +11,7 @@
 ## 本目录不覆盖什么
 
 - 标签业务的数据库结构与权限 → [backend_73info/doc/数据库Schema.md](../../backend_73info/doc/数据库Schema.md)
-- 前端怎么渲染标签树 → [user-client/doc/架构.md](../../user-client/doc/架构.md)、[admin_client/doc/架构.md](../../admin_client/doc/架构.md)
+- 前端怎么渲染标签树 → [user_client/doc/架构.md](../../user_client/doc/架构.md)、[admin_client/doc/架构.md](../../admin_client/doc/架构.md)
 - 跨项目约定 → [AGENTS.md](../../AGENTS.md)
 
 ## 文档清单

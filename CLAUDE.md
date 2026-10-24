@@ -6,6 +6,10 @@
 
 ## 一、开工（在本仓动手之前，包括「只是看看 / 改个文案」）
 
+> **CodeGraph 硬规则**：每次修改代码前先用 codegraph 定位符号与影响面
+> （`codegraph_context` / `codegraph_search` → `codegraph_callers` / `codegraph_impact`），
+> 详见 `.claude/rules/codegraph.md`。不要跳过索引直接 grep。
+
 1. `pwd` 确认在本仓目录；一次只处理一个仓库，不跨仓批量提交。
 2. `git fetch origin` → `git status --porcelain` → `git branch --show-current`。
 3. 当前分支落在 `dev` / `master` 上先停下：新建分支，不要在稳定线上直接改。
@@ -37,11 +41,11 @@
 | 前置 | `rustup target add wasm32-unknown-unknown` | 新机器第一次构建前装 target（见 `doc/构建与集成.md`） |
 | 改到 `src/**` | `cargo check --target wasm32-unknown-unknown` | 先编译过再打包 |
 | 出产物 | `wasm-pack build` | **必跑**：消费方吃的是 `pkg/`，只改源码不 build 等于没改 |
-| 联动验证 | 在 `../user-client` / `../admin_client` 跑各自校验 | 产物被两个宿主消费，改了要连宿主验一遍 |
+| 联动验证 | 在 `../user_client` / `../admin_client` 跑各自校验 | 产物被两个宿主消费，改了要连宿主验一遍 |
 
 ## 五、本仓事实与红线
 
-- 定位：Rust → WASM 的标签树处理库。消费方是 `../user-client` 与 `../admin_client`，
+- 定位：Rust → WASM 的标签树处理库。消费方是 `../user_client` 与 `../admin_client`，
   它们读的是 **`pkg/` 里的产物**，所以「改源码 + 提交」不够，必须 `wasm-pack build` 后让宿主重新验证。
 - `pkg/` 不入库（`.gitignore` 已排除）：宿主侧缺失时由本仓重新 build 生成，不要去别的机器上拷。
 - **公开仓，`master` 有服务端保护**：要求 PR 且至少 1 个批准、`enforce_admins`、线性历史（squash / rebase）、

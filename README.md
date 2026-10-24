@@ -1,6 +1,6 @@
 # tags-wasm
 
-标签处理的 WASM 库：把后端返回的标签数据加工成前端要用的标签树。用 Rust 写、`wasm-bindgen` 导出，构建产物 `pkg/` 供 `user-client` 与 `admin_client` 消费。
+标签处理的 WASM 库：把后端返回的标签数据加工成前端要用的标签树。用 Rust 写、`wasm-bindgen` 导出，构建产物 `pkg/` 供 `user_client` 与 `admin_client` 消费。
 
 对外只暴露两个函数：`process_tags`（用户端）与 `process_admin_tags`（管理端）。
 
